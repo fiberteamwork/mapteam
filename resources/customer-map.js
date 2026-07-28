@@ -1,1235 +1,1541 @@
-(function () {
+/* =========================================================
+   CUSTOMER MAP
+   CSV : ./data/customer.csv
+   Separator : ;
+   ========================================================= */
 
-    const DATA_URL = './data/customer.csv';
+const DATA_URL = "./data/customer.csv";
 
-    let customers = [];
-    let customerSource = null;
-    let customerLayer = null;
-    let statusChart = null;
+let customers = [];
+let customerLayer = null;
+let customerSource = null;
+let wardChart = null;
 
-    // =====================================================
-    // WARNA STATUS
-    // =====================================================
 
-    const STATUS_COLORS = {
-        pending: '#ef4444',      // 🔴 Merah
-        reschedule: '#3b82f6',   // 🔵 Biru
-        done: '#22c55e',         // 🟢 Hijau
-        cancel: '#a855f7',       // 🟣 Ungu
-        unknown: '#6b7280'       // Abu-abu
-    };
+/* =========================================================
+   STATUS COLORS
+   ========================================================= */
 
-    // =====================================================
-    // NORMALISASI STATUS
-    // =====================================================
+const STATUS_CONFIG = {
 
-    function getStatus(value) {
+    "pending": {
+        label: "🔴 Pending",
+        color: "#ef4444"
+    },
 
-        const text =
-            String(value || '')
-                .toLowerCase()
-                .trim();
+    "reschedule": {
+        label: "🔵 Reschedule",
+        color: "#3b82f6"
+    },
 
-        if (text.includes('pending')) {
-            return 'pending';
-        }
+    "done": {
+        label: "🟢 Done",
+        color: "#22c55e"
+    },
 
-        if (text.includes('reschedule')) {
-            return 'reschedule';
-        }
+    "cancel": {
+        label: "🟣 Cancel",
+        color: "#a855f7"
+    },
 
-        if (text.includes('done')) {
-            return 'done';
-        }
-
-        if (text.includes('cancel')) {
-            return 'cancel';
-        }
-
-        return 'unknown';
+    "default": {
+        label: "⚪ Lainnya",
+        color: "#6b7280"
     }
 
-    function getStatusLabel(status) {
+};
 
-        const labels = {
-            pending: '🔴 Pending',
-            reschedule: '🔵 Reschedule',
-            done: '🟢 Done',
-            cancel: '🟣 Cancel',
-            unknown: '⚪ Lainnya'
-        };
 
-        return labels[status] || labels.unknown;
+/* =========================================================
+   NORMALIZE TEXT
+   ========================================================= */
 
+function normalize(value) {
+
+    return String(value ?? "")
+        .trim()
+        .replace(/\s+/g, " ");
+
+}
+
+
+/* =========================================================
+   STATUS KEY
+   ========================================================= */
+
+function getStatusKey(status) {
+
+    const s = normalize(status).toLowerCase();
+
+    if (s.includes("pending"))
+        return "pending";
+
+    if (s.includes("reschedule"))
+        return "reschedule";
+
+    if (
+        s.includes("done") ||
+        s.includes("complete") ||
+        s.includes("completed") ||
+        s.includes("success")
+    )
+        return "done";
+
+    if (
+        s.includes("cancel") ||
+        s.includes("canceled") ||
+        s.includes("cancelled")
+    )
+        return "cancel";
+
+    return "default";
+}
+
+
+/* =========================================================
+   STATUS COLOR
+   ========================================================= */
+
+function getStatusColor(status) {
+
+    return STATUS_CONFIG[
+        getStatusKey(status)
+    ].color;
+
+}
+
+
+/* =========================================================
+   CSV PARSER
+   ========================================================= */
+
+function parseCSV(text) {
+
+    text = text.replace(/^\uFEFF/, "");
+
+    const lines = text
+        .split(/\r?\n/)
+        .filter(line => line.trim() !== "");
+
+    if (!lines.length)
+        return [];
+
+    const headers = lines[0]
+        .split(";")
+        .map(h => normalize(h));
+
+    console.log("CSV HEADER:", headers);
+
+    const result = [];
+
+    for (let i = 1; i < lines.length; i++) {
+
+        const cols = lines[i].split(";");
+
+        const row = {};
+
+        headers.forEach((header, index) => {
+
+            row[header] =
+                normalize(cols[index] ?? "");
+
+        });
+
+        result.push(row);
     }
 
-    // =====================================================
-    // PARSER CSV ;
-    // =====================================================
+    return result;
 
-    function parseCustomerData(text) {
+}
 
-        const lines =
-            text
-                .replace(/\r/g, '')
-                .split('\n')
-                .filter(
-                    line =>
-                        line.trim() !== ''
+
+/* =========================================================
+   PARSE CUSTOMER DATA
+   ========================================================= */
+
+function parseCustomerData(text) {
+
+    const raw = parseCSV(text);
+
+    console.log(
+        "CSV RAW ROW:",
+        raw.length
+    );
+
+    return raw
+        .map(row => {
+
+            /*
+             * CSV utama:
+             *
+             * ID Customer
+             * Username
+             * City
+             * District
+             * Ward
+             * CEK SITE NAME SYSTEM
+             * Team
+             * Status Instalasi/Maintenance
+             * Visit Date
+             * Latitude
+             * Longitude
+             */
+
+            const team =
+                normalize(
+                    row["Team"]
                 );
 
-        if (lines.length < 2) {
+            /*
+             * Jika CSV memiliki Vendor
+             * gunakan Vendor.
+             *
+             * Kalau tidak ada,
+             * Vendor otomatis = Team.
+             */
 
-            throw new Error(
-                'customer.csv kosong atau tidak mempunyai data'
+            const vendor =
+                normalize(
+                    row["Vendor"]
+                ) || team;
+
+            const lat =
+                parseFloat(
+                    normalize(
+                        row["Latitude"]
+                    ).replace(",", ".")
+                );
+
+            const lon =
+                parseFloat(
+                    normalize(
+                        row["Longitude"]
+                    ).replace(",", ".")
+                );
+
+            return {
+
+                id:
+                    normalize(
+                        row["ID Customer"]
+                    ),
+
+                username:
+                    normalize(
+                        row["Username"]
+                    ),
+
+                city:
+                    normalize(
+                        row["City"]
+                    ),
+
+                district:
+                    normalize(
+                        row["District"]
+                    ),
+
+                ward:
+                    normalize(
+                        row["Ward"]
+                    ),
+
+                site:
+                    normalize(
+                        row["CEK SITE NAME SYSTEM"]
+                    ),
+
+                team: team,
+
+                vendor: vendor,
+
+                status:
+                    normalize(
+                        row[
+                            "Status Instalasi/Maintenance"
+                        ]
+                    ),
+
+                visitDate:
+                    normalize(
+                        row["Visit Date"]
+                    ),
+
+                latitude: lat,
+
+                longitude: lon
+
+            };
+
+        })
+        .filter(row => {
+
+            return (
+                row.id !== "" &&
+                Number.isFinite(row.latitude) &&
+                Number.isFinite(row.longitude) &&
+                row.latitude !== 0 &&
+                row.longitude !== 0
             );
 
-        }
+        });
 
-        const headers =
-            lines[0]
-                .split(';')
-                .map(
-                    x => x.trim()
-                );
+}
 
-        console.log(
-            'HEADER:',
-            headers
+
+/* =========================================================
+   MARKER STYLE
+   ========================================================= */
+
+function createMarkerStyle(customer) {
+
+    const color =
+        getStatusColor(
+            customer.status
         );
 
-        const result = [];
+    return new ol.style.Style({
 
-        lines
-            .slice(1)
-            .forEach(line => {
+        image:
+            new ol.style.Circle({
 
-                const values =
-                    line.split(';');
+                radius: 7,
 
-                const row = {};
+                fill:
+                    new ol.style.Fill({
+                        color: color
+                    }),
 
-                headers.forEach(
-                    (header, index) => {
+                stroke:
+                    new ol.style.Stroke({
+                        color: "#ffffff",
+                        width: 2
+                    })
 
-                        row[header] =
-                            (
-                                values[index] ||
-                                ''
-                            ).trim();
+            })
+
+    });
+
+}
+
+
+/* =========================================================
+   CREATE MAP LAYER
+   ========================================================= */
+
+function createCustomerLayer() {
+
+    customerSource =
+        new ol.source.Vector();
+
+    customerLayer =
+        new ol.layer.Vector({
+
+            source: customerSource,
+
+            properties: {
+                title: "Customer"
+            },
+
+            zIndex: 999
+
+        });
+
+    map.addLayer(
+        customerLayer
+    );
+
+}
+
+
+/* =========================================================
+   DRAW MARKERS
+   ========================================================= */
+
+function drawCustomers(data) {
+
+    if (!customerSource)
+        return;
+
+    customerSource.clear();
+
+    data.forEach(customer => {
+
+        const feature =
+            new ol.Feature({
+
+                geometry:
+                    new ol.geom.Point(
+                        ol.proj.fromLonLat([
+                            customer.longitude,
+                            customer.latitude
+                        ])
+                    ),
+
+                customer:
+                    customer
+
+            });
+
+        feature.setStyle(
+            createMarkerStyle(
+                customer
+            )
+        );
+
+        customerSource.addFeature(
+            feature
+        );
+
+    });
+
+    console.log(
+        "MARKER DITAMPILKAN:",
+        data.length
+    );
+
+}
+
+
+/* =========================================================
+   POPUP
+   ========================================================= */
+
+function showCustomerPopup(customer) {
+
+    const popup =
+        document.getElementById(
+            "popup-content"
+        );
+
+    const statusKey =
+        getStatusKey(
+            customer.status
+        );
+
+    const statusColor =
+        STATUS_CONFIG[
+            statusKey
+        ].color;
+
+    let gps = "";
+
+    if (
+        Number.isFinite(
+            customer.latitude
+        ) &&
+        Number.isFinite(
+            customer.longitude
+        )
+    ) {
+
+        gps =
+            `
+            <a
+                class="gps-button"
+                target="_blank"
+                href="https://www.google.com/maps/dir/?api=1&destination=${customer.latitude},${customer.longitude}"
+            >
+                📍 Buka GPS / Google Maps
+            </a>
+            `;
+
+    }
+
+    popup.innerHTML = `
+
+        <div class="customer-popup">
+
+            <table>
+
+                <tr>
+                    <td>ID Customer</td>
+                    <td>${customer.id}</td>
+                </tr>
+
+                <tr>
+                    <td>Username</td>
+                    <td>${customer.username}</td>
+                </tr>
+
+                <tr>
+                    <td>Vendor / Team</td>
+                    <td>${customer.vendor}</td>
+                </tr>
+
+                <tr>
+                    <td>City</td>
+                    <td>${customer.city}</td>
+                </tr>
+
+                <tr>
+                    <td>District</td>
+                    <td>${customer.district}</td>
+                </tr>
+
+                <tr>
+                    <td>Ward</td>
+                    <td>${customer.ward}</td>
+                </tr>
+
+                <tr>
+                    <td>Site</td>
+                    <td>${customer.site}</td>
+                </tr>
+
+                <tr>
+                    <td>Status</td>
+
+                    <td style="
+                        font-weight:bold;
+                        color:${statusColor};
+                    ">
+                        ${customer.status}
+                    </td>
+
+                </tr>
+
+                <tr>
+                    <td>Visit Date</td>
+                    <td>${customer.visitDate}</td>
+                </tr>
+
+                <tr>
+                    <td>Latitude</td>
+                    <td>${customer.latitude}</td>
+                </tr>
+
+                <tr>
+                    <td>Longitude</td>
+                    <td>${customer.longitude}</td>
+                </tr>
+
+            </table>
+
+            ${gps}
+
+        </div>
+
+    `;
+
+    if (
+        typeof overlay !==
+        "undefined"
+    ) {
+
+        overlay.setPosition(
+            ol.proj.fromLonLat([
+                customer.longitude,
+                customer.latitude
+            ])
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   MAP CLICK
+   ========================================================= */
+
+function setupMapClick() {
+
+    map.on(
+        "singleclick",
+        function(event) {
+
+            const feature =
+                map.forEachFeatureAtPixel(
+                    event.pixel,
+                    function(feature) {
+
+                        return feature;
 
                     }
                 );
 
-                result.push(row);
+            if (!feature)
+                return;
 
-            });
+            const customer =
+                feature.get(
+                    "customer"
+                );
 
-        return result;
+            if (customer)
+                showCustomerPopup(
+                    customer
+                );
 
-    }
-
-    // =====================================================
-    // KOORDINAT
-    // =====================================================
-
-    function getCoordinate(value) {
-
-        if (
-            value === undefined ||
-            value === null ||
-            value === ''
-        ) {
-            return null;
         }
+    );
 
-        const number =
-            parseFloat(
-                String(value)
-                    .replace(',', '.')
-                    .trim()
+}
+
+
+/* =========================================================
+   UNIQUE VALUES
+   ========================================================= */
+
+function uniqueValues(
+    data,
+    field
+) {
+
+    return [
+        ...new Set(
+
+            data
+                .map(
+                    item =>
+                        normalize(
+                            item[field]
+                        )
+                )
+                .filter(Boolean)
+
+        )
+    ]
+    .sort(
+        (a, b) =>
+            a.localeCompare(
+                b,
+                "id"
+            )
+    );
+
+}
+
+
+/* =========================================================
+   FILL SELECT
+   ========================================================= */
+
+function fillSelect(
+    id,
+    values,
+    firstText
+) {
+
+    const select =
+        document.getElementById(id);
+
+    if (!select)
+        return;
+
+    select.innerHTML =
+        `<option value="">
+            ${firstText}
+        </option>`;
+
+    values.forEach(value => {
+
+        const option =
+            document.createElement(
+                "option"
             );
 
-        if (!Number.isFinite(number)) {
-            return null;
-        }
+        option.value = value;
 
-        return number;
+        option.textContent =
+            value;
 
-    }
+        select.appendChild(
+            option
+        );
 
-    // =====================================================
-    // UNIQUE
-    // =====================================================
+    });
 
-    function unique(values) {
+}
 
-        return [
-            ...new Set(
-                values
-                    .filter(
-                        x =>
-                            x !== undefined &&
-                            x !== null &&
-                            String(x).trim() !== ''
-                    )
-                    .map(
-                        x =>
-                            String(x).trim()
-                    )
-            )
-        ].sort();
 
-    }
+/* =========================================================
+   FILTER OPTIONS
+   ========================================================= */
 
-    // =====================================================
-    // SELECT
-    // =====================================================
+function updateFilters() {
 
-    function fillSelect(
-        id,
-        values,
-        firstText
+    const city =
+        document.getElementById(
+            "filter-city"
+        )?.value || "";
+
+    const district =
+        document.getElementById(
+            "filter-district"
+        )?.value || "";
+
+    const team =
+        document.getElementById(
+            "filter-team"
+        )?.value || "";
+
+    const status =
+        document.getElementById(
+            "filter-status"
+        )?.value || "";
+
+
+    let temp =
+        customers.filter(c => {
+
+            return (
+
+                (!team ||
+                    c.vendor === team ||
+                    c.team === team
+                )
+
+                &&
+
+                (!status ||
+                    c.status === status
+                )
+
+                &&
+
+                (!city ||
+                    c.city === city
+                )
+
+            );
+
+        });
+
+
+    fillSelect(
+        "filter-district",
+
+        uniqueValues(
+            temp,
+            "district"
+        ),
+
+        "Semua District"
+    );
+
+
+    fillSelect(
+        "filter-ward",
+
+        uniqueValues(
+            temp,
+            "ward"
+        ),
+
+        "Semua Ward"
+    );
+
+
+    /*
+     * Pertahankan pilihan
+     */
+
+    const districtSelect =
+        document.getElementById(
+            "filter-district"
+        );
+
+    if (
+        district &&
+        uniqueValues(
+            temp,
+            "district"
+        ).includes(district)
     ) {
 
-        const select =
-            document.getElementById(id);
-
-        if (!select) {
-            return;
-        }
-
-        select.innerHTML = '';
-
-        const first =
-            document.createElement('option');
-
-        first.value = '';
-        first.textContent = firstText;
-
-        select.appendChild(first);
-
-        unique(values)
-            .forEach(value => {
-
-                const option =
-                    document.createElement(
-                        'option'
-                    );
-
-                option.value = value;
-                option.textContent = value;
-
-                select.appendChild(option);
-
-            });
+        districtSelect.value =
+            district;
 
     }
 
-    // =====================================================
-    // FILTER DATA
-    // =====================================================
 
-    function getFilteredData() {
+    /*
+     * Ward bergantung pada district
+     */
 
-        const city =
-            document.getElementById(
-                'filter-city'
-            ).value;
+    let wardData =
+        temp;
 
-        const district =
-            document.getElementById(
-                'filter-district'
-            ).value;
+    if (district) {
 
-        const ward =
-            document.getElementById(
-                'filter-ward'
-            ).value;
-
-        return customers.filter(row => {
-
-            if (
-                city &&
-                row.City !== city
-            ) {
-                return false;
-            }
-
-            if (
-                district &&
-                row.District !== district
-            ) {
-                return false;
-            }
-
-            if (
-                ward &&
-                row.Ward !== ward
-            ) {
-                return false;
-            }
-
-            return true;
-
-        });
-
-    }
-
-    // =====================================================
-    // STATUS COUNT
-    // =====================================================
-
-    function countStatus(data) {
-
-        const result = {
-
-            pending: 0,
-
-            reschedule: 0,
-
-            done: 0,
-
-            cancel: 0,
-
-            unknown: 0
-
-        };
-
-        data.forEach(row => {
-
-            const status =
-                getStatus(
-                    row[
-                        'Status Instalasi/Maintenance'
-                    ]
-                );
-
-            result[status]++;
-
-        });
-
-        return result;
-
-    }
-
-    // =====================================================
-    // MARKER STYLE
-    // =====================================================
-
-    function createMarkerStyle(status) {
-
-        const color =
-            STATUS_COLORS[status] ||
-            STATUS_COLORS.unknown;
-
-        return new ol.style.Style({
-
-            image:
-                new ol.style.Circle({
-
-                    radius: 9,
-
-                    fill:
-                        new ol.style.Fill({
-                            color: color
-                        }),
-
-                    stroke:
-                        new ol.style.Stroke({
-
-                            color: '#ffffff',
-
-                            width: 2
-
-                        })
-
-                })
-
-        });
-
-    }
-
-    // =====================================================
-    // DRAW MARKER
-    // =====================================================
-
-    function drawMarkers(data) {
-
-        if (!customerSource) {
-            return;
-        }
-
-        customerSource.clear();
-
-        data.forEach(row => {
-
-            const lat =
-                getCoordinate(
-                    row.Latitude
-                );
-
-            const lon =
-                getCoordinate(
-                    row.Longitude
-                );
-
-            // Tidak membuat marker untuk 0,0
-            if (
-                lat === null ||
-                lon === null ||
-                lat === 0 ||
-                lon === 0
-            ) {
-                return;
-            }
-
-            const status =
-                getStatus(
-                    row[
-                        'Status Instalasi/Maintenance'
-                    ]
-                );
-
-            const feature =
-                new ol.Feature({
-
-                    geometry:
-                        new ol.geom.Point(
-                            ol.proj.fromLonLat([
-                                lon,
-                                lat
-                            ])
-                        ),
-
-                    customer: row,
-
-                    latitude: lat,
-
-                    longitude: lon,
-
-                    status: status
-
-                });
-
-            feature.setStyle(
-                createMarkerStyle(status)
+        wardData =
+            temp.filter(
+                c =>
+                    c.district ===
+                    district
             );
 
-            customerSource.addFeature(
-                feature
+    }
+
+
+    fillSelect(
+        "filter-ward",
+
+        uniqueValues(
+            wardData,
+            "ward"
+        ),
+
+        "Semua Ward"
+    );
+
+}
+
+
+/* =========================================================
+   APPLY FILTER
+   ========================================================= */
+
+function applyFilters() {
+
+    const team =
+        document.getElementById(
+            "filter-team"
+        )?.value || "";
+
+    const status =
+        document.getElementById(
+            "filter-status"
+        )?.value || "";
+
+    const city =
+        document.getElementById(
+            "filter-city"
+        )?.value || "";
+
+    const district =
+        document.getElementById(
+            "filter-district"
+        )?.value || "";
+
+    const ward =
+        document.getElementById(
+            "filter-ward"
+        )?.value || "";
+
+
+    const filtered =
+        customers.filter(c => {
+
+            return (
+
+                (!team ||
+                    c.vendor === team ||
+                    c.team === team
+                )
+
+                &&
+
+                (!status ||
+                    c.status === status
+                )
+
+                &&
+
+                (!city ||
+                    c.city === city
+                )
+
+                &&
+
+                (!district ||
+                    c.district === district
+                )
+
+                &&
+
+                (!ward ||
+                    c.ward === ward
+                )
+
             );
 
         });
 
+
+    drawCustomers(
+        filtered
+    );
+
+    updateSummary(
+        filtered
+    );
+
+    updateChart(
+        filtered
+    );
+
+}
+
+
+/* =========================================================
+   SUMMARY
+   ========================================================= */
+
+function updateSummary(data) {
+
+    const total =
+        document.getElementById(
+            "total-customer"
+        );
+
+    const ward =
+        document.getElementById(
+            "total-ward"
+        );
+
+    if (total)
+        total.textContent =
+            data.length;
+
+    if (ward) {
+
+        ward.textContent =
+            new Set(
+                data
+                    .map(
+                        c =>
+                            c.ward
+                    )
+                    .filter(Boolean)
+            ).size;
+
     }
 
-    // =====================================================
-    // PIE CHART STATUS
-    // =====================================================
+}
 
-    function drawStatusChart(data) {
 
-        const counts =
-            countStatus(data);
+/* =========================================================
+   CHART STATUS
+   ========================================================= */
 
-        const canvas =
-            document.getElementById(
-                'ward-chart'
-            );
+function updateChart(data) {
 
-        if (!canvas) {
-            return;
-        }
+    const count = {
 
-        if (statusChart) {
-            statusChart.destroy();
-        }
+        pending: 0,
 
-        statusChart =
-            new Chart(
-                canvas,
-                {
+        reschedule: 0,
 
-                    type: 'pie',
+        done: 0,
 
-                    data: {
+        cancel: 0,
 
-                        labels: [
+        default: 0
 
-                            '🔴 Pending',
+    };
 
-                            '🔵 Reschedule',
 
-                            '🟢 Done',
+    data.forEach(c => {
 
-                            '🟣 Cancel'
+        count[
+            getStatusKey(
+                c.status
+            )
+        ]++;
 
-                        ],
+    });
 
-                        datasets: [{
 
-                            data: [
+    const labels = [
 
-                                counts.pending,
+        "🔴 Pending",
 
-                                counts.reschedule,
+        "🔵 Reschedule",
 
-                                counts.done,
+        "🟢 Done",
 
-                                counts.cancel
+        "🟣 Cancel",
 
-                            ],
+        "⚪ Lainnya"
 
-                            backgroundColor: [
+    ];
 
-                                STATUS_COLORS.pending,
 
-                                STATUS_COLORS.reschedule,
+    const values = [
 
-                                STATUS_COLORS.done,
+        count.pending,
 
-                                STATUS_COLORS.cancel
+        count.reschedule,
 
-                            ],
+        count.done,
 
-                            borderColor:
-                                '#ffffff',
+        count.cancel,
 
-                            borderWidth: 2
+        count.default
 
-                        }]
+    ];
 
-                    },
 
-                    options: {
+    const colors = [
 
-                        responsive: true,
+        STATUS_CONFIG.pending.color,
 
-                        maintainAspectRatio: false,
+        STATUS_CONFIG.reschedule.color,
 
-                        plugins: {
+        STATUS_CONFIG.done.color,
 
-                            legend: {
+        STATUS_CONFIG.cancel.color,
 
-                                position:
-                                    'bottom'
+        STATUS_CONFIG.default.color
 
-                            },
+    ];
 
-                            tooltip: {
 
-                                callbacks: {
+    const canvas =
+        document.getElementById(
+            "ward-chart"
+        );
 
-                                    label:
-                                        function (
-                                            context
-                                        ) {
+    if (!canvas)
+        return;
 
-                                            const value =
-                                                context.raw;
 
-                                            const total =
-                                                context.dataset
-                                                    .data
-                                                    .reduce(
-                                                        (
-                                                            a,
-                                                            b
-                                                        ) =>
-                                                            a + b,
-                                                        0
-                                                    );
+    if (wardChart)
+        wardChart.destroy();
 
-                                            const percent =
-                                                total
-                                                    ? (
-                                                        value /
-                                                        total *
-                                                        100
-                                                    ).toFixed(
-                                                        1
-                                                    )
-                                                    : 0;
 
-                                            return (
-                                                ' ' +
-                                                value +
-                                                ' customer (' +
-                                                percent +
-                                                '%)'
-                                            );
+    wardChart =
+        new Chart(
+            canvas,
+            {
 
-                                        }
+                type: "pie",
 
-                                }
+                data: {
 
-                            }
+                    labels: labels,
+
+                    datasets: [{
+
+                        data: values,
+
+                        backgroundColor:
+                            colors
+
+                    }]
+
+                },
+
+                options: {
+
+                    responsive: true,
+
+                    plugins: {
+
+                        legend: {
+
+                            position:
+                                "bottom"
 
                         }
 
                     }
 
                 }
-            );
 
-    }
-
-    // =====================================================
-    // LEGEND STATUS
-    // =====================================================
-
-    function updateLegend(data) {
-
-        const container =
-            document.getElementById(
-                'legend'
-            );
-
-        if (!container) {
-            return;
-        }
-
-        const counts =
-            countStatus(data);
-
-        container.innerHTML = '';
-
-        const statuses = [
-
-            'pending',
-
-            'reschedule',
-
-            'done',
-
-            'cancel'
-
-        ];
-
-        statuses.forEach(status => {
-
-            const item =
-                document.createElement(
-                    'div'
-                );
-
-            item.className =
-                'legend-item';
-
-            item.innerHTML = `
-
-                <span
-                    class="legend-color"
-                    style="
-                        background:
-                        ${STATUS_COLORS[status]};
-                    ">
-                </span>
-
-                <span>
-                    ${getStatusLabel(status)}
-                    —
-                    <b>${counts[status]}</b>
-                    customer
-                </span>
-
-            `;
-
-            container.appendChild(
-                item
-            );
-
-        });
-
-    }
-
-    // =====================================================
-    // DASHBOARD
-    // =====================================================
-
-    function updateDashboard() {
-
-        const data =
-            getFilteredData();
-
-        const totalCustomer =
-            document.getElementById(
-                'total-customer'
-            );
-
-        const totalWard =
-            document.getElementById(
-                'total-ward'
-            );
-
-        if (totalCustomer) {
-
-            totalCustomer.textContent =
-                data.length.toLocaleString(
-                    'id-ID'
-                );
-
-        }
-
-        if (totalWard) {
-
-            totalWard.textContent =
-                unique(
-                    data.map(
-                        x => x.Ward
-                    )
-                ).length;
-
-        }
-
-        drawMarkers(data);
-
-        drawStatusChart(data);
-
-        updateLegend(data);
-
-    }
-
-    // =====================================================
-    // CITY → DISTRICT
-    // =====================================================
-
-    function updateDistrict() {
-
-        const city =
-            document.getElementById(
-                'filter-city'
-            ).value;
-
-        const data =
-            customers.filter(row => {
-
-                return (
-                    !city ||
-                    row.City === city
-                );
-
-            });
-
-        fillSelect(
-
-            'filter-district',
-
-            data.map(
-                x => x.District
-            ),
-
-            'Semua District'
-
+            }
         );
 
-        fillSelect(
 
-            'filter-ward',
+    updateLegend(
+        count
+    );
 
-            [],
+}
 
-            'Semua Ward'
 
+/* =========================================================
+   LEGEND
+   ========================================================= */
+
+function updateLegend(count) {
+
+    const legend =
+        document.getElementById(
+            "legend"
         );
 
-        updateDashboard();
+    if (!legend)
+        return;
 
-    }
+    legend.innerHTML = "";
 
-    // =====================================================
-    // DISTRICT → WARD
-    // =====================================================
 
-    function updateWard() {
+    Object.keys(
+        STATUS_CONFIG
+    ).forEach(key => {
 
-        const city =
-            document.getElementById(
-                'filter-city'
-            ).value;
+        const config =
+            STATUS_CONFIG[key];
 
-        const district =
-            document.getElementById(
-                'filter-district'
-            ).value;
-
-        const data =
-            customers.filter(row => {
-
-                if (
-                    city &&
-                    row.City !== city
-                ) {
-                    return false;
-                }
-
-                if (
-                    district &&
-                    row.District !== district
-                ) {
-                    return false;
-                }
-
-                return true;
-
-            });
-
-        fillSelect(
-
-            'filter-ward',
-
-            data.map(
-                x => x.Ward
-            ),
-
-            'Semua Ward'
-
-        );
-
-        updateDashboard();
-
-    }
-
-    // =====================================================
-    // POPUP CUSTOMER
-    // =====================================================
-
-    function showPopup(feature) {
-
-        const row =
-            feature.get(
-                'customer'
+        const item =
+            document.createElement(
+                "div"
             );
 
-        const lat =
-            feature.get(
-                'latitude'
-            );
+        item.className =
+            "legend-item";
 
-        const lon =
-            feature.get(
-                'longitude'
-            );
 
-        const status =
-            feature.get(
-                'status'
-            );
+        item.innerHTML = `
 
-        const gps =
-            'https://www.google.com/maps/search/?api=1&query=' +
-            encodeURIComponent(
-                lat + ',' + lon
-            );
+            <span
+                class="legend-color"
+                style="
+                    background:${config.color}
+                "
+            ></span>
 
-        const statusColor =
-            STATUS_COLORS[status] ||
-            STATUS_COLORS.unknown;
-
-        const html = `
-
-            <div class="customer-popup">
-
-                <h3>
-                    ${row['ID Customer'] || '-'}
-                </h3>
-
-                <table>
-
-                    <tr>
-                        <td>Username</td>
-                        <td>
-                            ${row.Username || '-'}
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <td>City</td>
-                        <td>
-                            ${row.City || '-'}
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <td>District</td>
-                        <td>
-                            ${row.District || '-'}
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <td>Ward</td>
-                        <td>
-                            ${row.Ward || '-'}
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <td>Site</td>
-                        <td>
-                            ${row['CEK SITE NAME SYSTEM'] || '-'}
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <td>Team</td>
-                        <td>
-                            ${row.Team || '-'}
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <td>Status</td>
-
-                        <td>
-                            <b
-                                style="
-                                    color:${statusColor};
-                                "
-                            >
-                                ${getStatusLabel(status)}
-                            </b>
-                        </td>
-
-                    </tr>
-
-                    <tr>
-                        <td>Visit Date</td>
-                        <td>
-                            ${row['Visit Date'] || '-'}
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <td>Latitude</td>
-                        <td>
-                            ${lat}
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <td>Longitude</td>
-                        <td>
-                            ${lon}
-                        </td>
-                    </tr>
-
-                </table>
-
-                <a
-                    href="${gps}"
-                    target="_blank"
-                    rel="noopener"
-                    class="gps-button"
-                >
-                    📍 Buka GPS
-                </a>
-
-            </div>
+            <span>
+                ${config.label}
+                :
+                ${count[key] || 0}
+            </span>
 
         `;
 
+
+        legend.appendChild(
+            item
+        );
+
+    });
+
+}
+
+
+/* =========================================================
+   EVENTS
+   ========================================================= */
+
+function setupFilters() {
+
+    const team =
         document.getElementById(
-            'popup-content'
-        ).innerHTML = html;
+            "filter-team"
+        );
 
-        if (
-            typeof overlay !==
-            'undefined'
-        ) {
+    const status =
+        document.getElementById(
+            "filter-status"
+        );
 
-            overlay.setPosition(
-                feature
-                    .getGeometry()
-                    .getCoordinates()
-            );
+    const city =
+        document.getElementById(
+            "filter-city"
+        );
 
-        }
+    const district =
+        document.getElementById(
+            "filter-district"
+        );
+
+    const ward =
+        document.getElementById(
+            "filter-ward"
+        );
+
+
+    if (team) {
+
+        team.addEventListener(
+            "change",
+            function() {
+
+                updateFilters();
+                applyFilters();
+
+            }
+        );
 
     }
 
-    // =====================================================
-    // LOAD CSV
-    // =====================================================
 
-    async function loadData() {
+    if (status) {
 
-        try {
+        status.addEventListener(
+            "change",
+            function() {
 
-            console.log(
-                'Membaca:',
-                DATA_URL
+                updateFilters();
+                applyFilters();
+
+            }
+        );
+
+    }
+
+
+    if (city) {
+
+        city.addEventListener(
+            "change",
+            function() {
+
+                updateFilters();
+                applyFilters();
+
+            }
+        );
+
+    }
+
+
+    if (district) {
+
+        district.addEventListener(
+            "change",
+            function() {
+
+                updateFilters();
+                applyFilters();
+
+            }
+        );
+
+    }
+
+
+    if (ward) {
+
+        ward.addEventListener(
+            "change",
+            applyFilters
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   DASHBOARD BUTTON
+   ========================================================= */
+
+function setupDashboard() {
+
+    const dashboard =
+        document.getElementById(
+            "dashboard"
+        );
+
+    const close =
+        document.getElementById(
+            "dashboard-close"
+        );
+
+    const toggle =
+        document.getElementById(
+            "dashboard-toggle"
+        );
+
+
+    if (close) {
+
+        close.onclick =
+            function() {
+
+                dashboard.style.display =
+                    "none";
+
+                toggle.style.display =
+                    "block";
+
+            };
+
+    }
+
+
+    if (toggle) {
+
+        toggle.onclick =
+            function() {
+
+                dashboard.style.display =
+                    "block";
+
+                toggle.style.display =
+                    "none";
+
+            };
+
+    }
+
+}
+
+
+/* =========================================================
+   LOAD CSV
+   ========================================================= */
+
+async function loadData() {
+
+    try {
+
+        console.log(
+            "Membaca:",
+            DATA_URL
+        );
+
+
+        const response =
+            await fetch(
+                DATA_URL +
+                "?v=" +
+                Date.now()
             );
 
-            const response =
-                await fetch(
-                    DATA_URL +
-                    '?v=' +
-                    Date.now()
-                );
 
-            console.log(
-                'CSV STATUS:',
+        console.log(
+            "CSV STATUS:",
+            response.status
+        );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "CSV gagal dibaca. HTTP " +
                 response.status
             );
 
-            if (!response.ok) {
-
-                throw new Error(
-                    'HTTP ' +
-                    response.status
-                );
-
-            }
-
-            const text =
-                await response.text();
-
-            customers =
-                parseCustomerData(text);
-
-            console.log(
-                'TOTAL CUSTOMER:',
-                customers.length
-            );
-
-            console.table(
-                customers.slice(
-                    0,
-                    10
-                )
-            );
-
-            // CITY
-
-            fillSelect(
-
-                'filter-city',
-
-                customers.map(
-                    x => x.City
-                ),
-
-                'Semua City'
-
-            );
-
-            // DISTRICT
-
-            fillSelect(
-
-                'filter-district',
-
-                [],
-
-                'Semua District'
-
-            );
-
-            // WARD
-
-            fillSelect(
-
-                'filter-ward',
-
-                [],
-
-                'Semua Ward'
-
-            );
-
-            // OPENLAYERS SOURCE
-
-            customerSource =
-                new ol.source.Vector();
-
-            customerLayer =
-                new ol.layer.Vector({
-
-                    title:
-                        'Customer',
-
-                    source:
-                        customerSource,
-
-                    zIndex:
-                        9999
-
-                });
-
-            map.addLayer(
-                customerLayer
-            );
-
-            updateDashboard();
-
-            // CLICK MARKER
-
-            map.on(
-                'singleclick',
-                function(event) {
-
-                    const feature =
-                        map.forEachFeatureAtPixel(
-
-                            event.pixel,
-
-                            function(feature) {
-
-                                if (
-                                    feature.get(
-                                        'customer'
-                                    )
-                                ) {
-
-                                    return feature;
-
-                                }
-
-                                return null;
-
-                            }
-
-                        );
-
-                    if (feature) {
-
-                        showPopup(
-                            feature
-                        );
-
-                    }
-
-                }
-            );
-
         }
-        catch (error) {
 
-            console.error(
-                'CUSTOMER CSV ERROR:',
-                error
+
+        const text =
+            await response.text();
+
+
+        console.log(
+            "CSV BERHASIL DIBACA"
+        );
+
+
+        console.log(
+            "Jumlah karakter:",
+            text.length
+        );
+
+
+        customers =
+            parseCustomerData(
+                text
             );
 
-            alert(
-                'Gagal membaca customer.csv\n\n' +
-                error.message
-            );
 
-        }
+        console.log(
+            "TOTAL CUSTOMER:",
+            customers.length
+        );
+
+
+        console.table(
+            customers.slice(
+                0,
+                10
+            )
+        );
+
+
+        /*
+         * Buat layer
+         */
+
+        createCustomerLayer();
+
+
+        /*
+         * Isi Vendor / Team
+         */
+
+        fillSelect(
+
+            "filter-team",
+
+            uniqueValues(
+                customers,
+                "vendor"
+            ),
+
+            "Semua Vendor / Team"
+
+        );
+
+
+        /*
+         * Isi Status
+         */
+
+        fillSelect(
+
+            "filter-status",
+
+            uniqueValues(
+                customers,
+                "status"
+            ),
+
+            "Semua Status"
+
+        );
+
+
+        /*
+         * Isi City
+         */
+
+        fillSelect(
+
+            "filter-city",
+
+            uniqueValues(
+                customers,
+                "city"
+            ),
+
+            "Semua City"
+
+        );
+
+
+        /*
+         * Isi District
+         */
+
+        fillSelect(
+
+            "filter-district",
+
+            uniqueValues(
+                customers,
+                "district"
+            ),
+
+            "Semua District"
+
+        );
+
+
+        /*
+         * Isi Ward
+         */
+
+        fillSelect(
+
+            "filter-ward",
+
+            uniqueValues(
+                customers,
+                "ward"
+            ),
+
+            "Semua Ward"
+
+        );
+
+
+        setupFilters();
+
+        setupDashboard();
+
+        setupMapClick();
+
+
+        /*
+         * Tampilkan marker
+         */
+
+        drawCustomers(
+            customers
+        );
+
+
+        updateSummary(
+            customers
+        );
+
+
+        updateChart(
+            customers
+        );
+
+
+    }
+    catch (error) {
+
+        console.error(
+            "CUSTOMER CSV ERROR:",
+            error
+        );
+
+
+        alert(
+            "Gagal membaca customer.csv\n\n" +
+            error.message +
+            "\n\n" +
+            "Pastikan file berada di:\n" +
+            "data/customer.csv"
+        );
 
     }
 
-    // =====================================================
-    // START
-    // =====================================================
+}
+
+
+/* =========================================================
+   START
+   ========================================================= */
+
+function startCustomerMap() {
+
+    if (
+        typeof map ===
+        "undefined"
+    ) {
+
+        console.error(
+            "OpenLayers map belum tersedia."
+        );
+
+        return;
+
+    }
+
+    loadData();
+
+}
+
+
+/*
+ * Tunggu qgis2web selesai membuat map
+ */
+
+if (
+    document.readyState ===
+    "loading"
+) {
 
     document.addEventListener(
-        'DOMContentLoaded',
+        "DOMContentLoaded",
         function() {
 
-            const city =
-                document.getElementById(
-                    'filter-city'
-                );
-
-            const district =
-                document.getElementById(
-                    'filter-district'
-                );
-
-            const ward =
-                document.getElementById(
-                    'filter-ward'
-                );
-
-            if (city) {
-
-                city.addEventListener(
-                    'change',
-                    updateDistrict
-                );
-
-            }
-
-            if (district) {
-
-                district.addEventListener(
-                    'change',
-                    updateWard
-                );
-
-            }
-
-            if (ward) {
-
-                ward.addEventListener(
-                    'change',
-                    updateDashboard
-                );
-
-            }
-
-            const close =
-                document.getElementById(
-                    'dashboard-close'
-                );
-
-            if (close) {
-
-                close.addEventListener(
-                    'click',
-                    function() {
-
-                        document
-                            .getElementById(
-                                'dashboard'
-                            )
-                            .style.display =
-                            'none';
-
-                        document
-                            .getElementById(
-                                'dashboard-toggle'
-                            )
-                            .style.display =
-                            'block';
-
-                    }
-                );
-
-            }
-
-            const toggle =
-                document.getElementById(
-                    'dashboard-toggle'
-                );
-
-            if (toggle) {
-
-                toggle.addEventListener(
-                    'click',
-                    function() {
-
-                        document
-                            .getElementById(
-                                'dashboard'
-                            )
-                            .style.display =
-                            'block';
-
-                        this.style.display =
-                            'none';
-
-                    }
-                );
-
-            }
-
-            loadData();
+            setTimeout(
+                startCustomerMap,
+                500
+            );
 
         }
     );
 
-})();
+}
+else {
+
+    setTimeout(
+        startCustomerMap,
+        500
+    );
+
+}
