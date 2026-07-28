@@ -232,9 +232,9 @@
 
 function getFilteredData() {
 
-    const team =
+    const vendor =
         document.getElementById(
-            'filter-team'
+            'filter-vendor'
         ).value;
 
     const city =
@@ -255,8 +255,8 @@ function getFilteredData() {
     return customers.filter(row => {
 
         if (
-            team &&
-            row.team !== team
+            vendor &&
+            row.vendor !== vendor
         ) {
             return false;
         }
@@ -706,11 +706,11 @@ function getFilteredData() {
     // CITY → DISTRICT
     // =====================================================
     
-    function updateteam() {
+    function updatevendor() {
 
-    const team =
+    const vendor =
         document.getElementById(
-            'filter-team'
+            'filter-vendor'
         ).value;
 
 
@@ -719,8 +719,8 @@ function getFilteredData() {
             row => {
 
                 return (
-                    !team ||
-                    row.team === team
+                    !vendor ||
+                    row.vendor === vendor
                 );
 
             }
@@ -769,9 +769,9 @@ function getFilteredData() {
     
 function updateDistrict() {
 
-    const team =
+    const vendor =
         document.getElementById(
-            'filter-team'
+            'filter-vendor'
         ).value;
 
     const city =
@@ -785,8 +785,8 @@ function updateDistrict() {
             row => {
 
                 if (
-                    team &&
-                    row.team !== team
+                    vendor &&
+                    row.vendor !== vendor
                 ) {
 
                     return false;
@@ -841,9 +841,9 @@ function updateDistrict() {
     
 function updateWard() {
 
-    const team =
+    const vendor =
         document.getElementById(
-            'filter-team'
+            'filter-vendor'
         ).value;
 
     const city =
@@ -862,8 +862,8 @@ function updateWard() {
             row => {
 
                 if (
-                    team &&
-                    row.team !== team
+                    vendor &&
+                    row.vendor !== vendor
                 ) {
 
                     return false;
@@ -996,9 +996,9 @@ function updateWard() {
                     </tr>
 
                     <tr>
-                        <td>Team</td>
+                        <td>vendor</td>
                         <td>
-                            ${row.Team || '-'}
+                            ${row.vendor || '-'}
                         </td>
                     </tr>
 
@@ -1218,9 +1218,9 @@ async function loadData() {
 
             'CEK SITE NAME SYSTEM',
 
-            'Team',
+            'vendor',
 
-            'team',
+            'vendor',
 
             'Status Instalasi/Maintenance',
 
@@ -1263,19 +1263,19 @@ async function loadData() {
 
 
         // =====================================================
-        // FILTER team
+        // FILTER vendor
         // =====================================================
 
         fillSelect(
 
-            'filter-team',
+            'filter-vendor',
 
             customers.map(
                 row =>
-                    row.team
+                    row.vendor
             ),
 
-            'Semua team'
+            'Semua vendor'
 
         );
 
@@ -1614,9 +1614,9 @@ async function loadData() {
     document.addEventListener(
         'DOMContentLoaded',
         function() {
-            const team =
+            const vendor =
                 document.getElementById(
-                    'filter-team'
+                    'filter-vendor'
                 );
             
             const city =
