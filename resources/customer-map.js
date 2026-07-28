@@ -230,52 +230,63 @@
     // FILTER DATA
     // =====================================================
 
-    function getFilteredData() {
+function getFilteredData() {
 
-        const city =
-            document.getElementById(
-                'filter-city'
-            ).value;
+    const vendor =
+        document.getElementById(
+            'filter-vendor'
+        ).value;
 
-        const district =
-            document.getElementById(
-                'filter-district'
-            ).value;
+    const city =
+        document.getElementById(
+            'filter-city'
+        ).value;
 
-        const ward =
-            document.getElementById(
-                'filter-ward'
-            ).value;
+    const district =
+        document.getElementById(
+            'filter-district'
+        ).value;
 
-        return customers.filter(row => {
+    const ward =
+        document.getElementById(
+            'filter-ward'
+        ).value;
 
-            if (
-                city &&
-                row.City !== city
-            ) {
-                return false;
-            }
+    return customers.filter(row => {
 
-            if (
-                district &&
-                row.District !== district
-            ) {
-                return false;
-            }
+        if (
+            vendor &&
+            row.Vendor !== vendor
+        ) {
+            return false;
+        }
 
-            if (
-                ward &&
-                row.Ward !== ward
-            ) {
-                return false;
-            }
+        if (
+            city &&
+            row.City !== city
+        ) {
+            return false;
+        }
 
-            return true;
+        if (
+            district &&
+            row.District !== district
+        ) {
+            return false;
+        }
 
-        });
+        if (
+            ward &&
+            row.Ward !== ward
+        ) {
+            return false;
+        }
 
-    }
+        return true;
 
+    });
+
+}
     // =====================================================
     // STATUS COUNT
     // =====================================================
@@ -694,103 +705,215 @@
     // =====================================================
     // CITY → DISTRICT
     // =====================================================
+    
+    function updateVendor() {
 
-    function updateDistrict() {
+    const vendor =
+        document.getElementById(
+            'filter-vendor'
+        ).value;
 
-        const city =
-            document.getElementById(
-                'filter-city'
-            ).value;
 
-        const data =
-            customers.filter(row => {
+    const data =
+        customers.filter(
+            row => {
 
                 return (
-                    !city ||
-                    row.City === city
+                    !vendor ||
+                    row.Vendor === vendor
                 );
 
-            });
-
-        fillSelect(
-
-            'filter-district',
-
-            data.map(
-                x => x.District
-            ),
-
-            'Semua District'
-
+            }
         );
 
-        fillSelect(
 
-            'filter-ward',
+    fillSelect(
 
-            [],
+        'filter-city',
 
-            'Semua Ward'
+        data.map(
+            row =>
+                row.City
+        ),
 
-        );
+        'Semua City'
 
-        updateDashboard();
+    );
 
-    }
 
-    // =====================================================
-    // DISTRICT → WARD
-    // =====================================================
+    fillSelect(
 
-    function updateWard() {
+        'filter-district',
 
-        const city =
-            document.getElementById(
-                'filter-city'
-            ).value;
+        [],
 
-        const district =
-            document.getElementById(
-                'filter-district'
-            ).value;
+        'Semua District'
 
-        const data =
-            customers.filter(row => {
+    );
+
+
+    fillSelect(
+
+        'filter-ward',
+
+        [],
+
+        'Semua Ward'
+
+    );
+
+
+    updateDashboard();
+
+}
+    
+function updateDistrict() {
+
+    const vendor =
+        document.getElementById(
+            'filter-vendor'
+        ).value;
+
+    const city =
+        document.getElementById(
+            'filter-city'
+        ).value;
+
+
+    const data =
+        customers.filter(
+            row => {
+
+                if (
+                    vendor &&
+                    row.Vendor !== vendor
+                ) {
+
+                    return false;
+
+                }
+
 
                 if (
                     city &&
                     row.City !== city
                 ) {
+
                     return false;
+
                 }
+
+
+                return true;
+
+            }
+        );
+
+
+    fillSelect(
+
+        'filter-district',
+
+        data.map(
+            row =>
+                row.District
+        ),
+
+        'Semua District'
+
+    );
+
+
+    fillSelect(
+
+        'filter-ward',
+
+        [],
+
+        'Semua Ward'
+
+    );
+
+
+    updateDashboard();
+
+}
+    
+function updateWard() {
+
+    const vendor =
+        document.getElementById(
+            'filter-vendor'
+        ).value;
+
+    const city =
+        document.getElementById(
+            'filter-city'
+        ).value;
+
+    const district =
+        document.getElementById(
+            'filter-district'
+        ).value;
+
+
+    const data =
+        customers.filter(
+            row => {
+
+                if (
+                    vendor &&
+                    row.Vendor !== vendor
+                ) {
+
+                    return false;
+
+                }
+
+
+                if (
+                    city &&
+                    row.City !== city
+                ) {
+
+                    return false;
+
+                }
+
 
                 if (
                     district &&
                     row.District !== district
                 ) {
+
                     return false;
+
                 }
+
 
                 return true;
 
-            });
-
-        fillSelect(
-
-            'filter-ward',
-
-            data.map(
-                x => x.Ward
-            ),
-
-            'Semua Ward'
-
+            }
         );
 
-        updateDashboard();
 
-    }
+    fillSelect(
 
+        'filter-ward',
+
+        data.map(
+            row =>
+                row.Ward
+        ),
+
+        'Semua Ward'
+
+    );
+
+
+    updateDashboard();
+
+}
     // =====================================================
     // POPUP CUSTOMER
     // =====================================================
@@ -953,53 +1076,416 @@
     // LOAD CSV
     // =====================================================
 
-    async function loadData() {
+async function loadData() {
 
-        try {
+    try {
 
-            console.log(
-                'Membaca:',
-                DATA_URL
+        console.log(
+            '===================================='
+        );
+
+        console.log(
+            'Membaca customer CSV:',
+            DATA_URL
+        );
+
+        // =====================================================
+        // AMBIL CSV
+        // =====================================================
+
+        const response =
+            await fetch(
+                DATA_URL +
+                '?v=' +
+                Date.now()
             );
 
-            const response =
-                await fetch(
-                    DATA_URL +
-                    '?v=' +
-                    Date.now()
-                );
+        console.log(
+            'CSV STATUS:',
+            response.status
+        );
 
-            console.log(
-                'CSV STATUS:',
+        console.log(
+            'CSV OK:',
+            response.ok
+        );
+
+        if (!response.ok) {
+
+            throw new Error(
+                'CSV tidak dapat dibaca. HTTP ' +
                 response.status
             );
 
-            if (!response.ok) {
+        }
 
-                throw new Error(
-                    'HTTP ' +
-                    response.status
+
+        // =====================================================
+        // BACA TEXT CSV
+        // =====================================================
+
+        const text =
+            await response.text();
+
+
+        if (!text.trim()) {
+
+            throw new Error(
+                'customer.csv kosong.'
+            );
+
+        }
+
+
+        console.log(
+            'CSV BERHASIL DIBACA'
+        );
+
+        console.log(
+            'Ukuran CSV:',
+            text.length,
+            'karakter'
+        );
+
+
+        // =====================================================
+        // PARSE CSV
+        // =====================================================
+
+        customers =
+            parseCustomerData(text);
+
+
+        if (
+            !Array.isArray(customers)
+        ) {
+
+            throw new Error(
+                'Format data customer tidak valid.'
+            );
+
+        }
+
+
+        console.log(
+            'TOTAL CUSTOMER:',
+            customers.length
+        );
+
+
+        // =====================================================
+        // CEK DATA
+        // =====================================================
+
+        console.table(
+            customers.slice(
+                0,
+                10
+            )
+        );
+
+
+        if (
+            customers.length === 0
+        ) {
+
+            throw new Error(
+                'Tidak ada data customer di CSV.'
+            );
+
+        }
+
+
+        // =====================================================
+        // CEK HEADER
+        // =====================================================
+
+        const firstRow =
+            customers[0];
+
+
+        const requiredColumns = [
+
+            'ID Customer',
+
+            'Username',
+
+            'City',
+
+            'District',
+
+            'Ward',
+
+            'CEK SITE NAME SYSTEM',
+
+            'Team',
+
+            'Vendor',
+
+            'Status Instalasi/Maintenance',
+
+            'Visit Date',
+
+            'Latitude',
+
+            'Longitude'
+
+        ];
+
+
+        const missingColumns =
+            requiredColumns.filter(
+                column =>
+                    !Object.prototype
+                        .hasOwnProperty
+                        .call(
+                            firstRow,
+                            column
+                        )
+            );
+
+
+        if (
+            missingColumns.length > 0
+        ) {
+
+            console.warn(
+                'Kolom tidak ditemukan:',
+                missingColumns
+            );
+
+            console.warn(
+                'Kolom yang tersedia:',
+                Object.keys(firstRow)
+            );
+
+        }
+
+
+        // =====================================================
+        // FILTER VENDOR
+        // =====================================================
+
+        fillSelect(
+
+            'filter-vendor',
+
+            customers.map(
+                row =>
+                    row.Vendor
+            ),
+
+            'Semua Vendor'
+
+        );
+
+
+        // =====================================================
+        // FILTER CITY
+        // =====================================================
+
+        fillSelect(
+
+            'filter-city',
+
+            customers.map(
+                row =>
+                    row.City
+            ),
+
+            'Semua City'
+
+        );
+
+
+        // =====================================================
+        // RESET DISTRICT
+        // =====================================================
+
+        fillSelect(
+
+            'filter-district',
+
+            [],
+
+            'Semua District'
+
+        );
+
+
+        // =====================================================
+        // RESET WARD
+        // =====================================================
+
+        fillSelect(
+
+            'filter-ward',
+
+            [],
+
+            'Semua Ward'
+
+        );
+
+
+        // =====================================================
+        // BUAT SOURCE CUSTOMER
+        // =====================================================
+
+        customerSource =
+            new ol.source.Vector();
+
+
+        // =====================================================
+        // BUAT LAYER CUSTOMER
+        // =====================================================
+
+        customerLayer =
+            new ol.layer.Vector({
+
+                title:
+                    'Customer',
+
+                source:
+                    customerSource,
+
+                zIndex:
+                    9999
+
+            });
+
+
+        // =====================================================
+        // TAMBAHKAN LAYER KE MAP
+        // =====================================================
+
+        map.addLayer(
+            customerLayer
+        );
+
+
+        console.log(
+            'Customer layer berhasil dibuat.'
+        );
+
+
+        // =====================================================
+        // TAMPILKAN DATA AWAL
+        // =====================================================
+
+        updateDashboard();
+
+
+        // =====================================================
+        // CLICK MARKER
+        // =====================================================
+
+        map.on(
+            'singleclick',
+            function(event) {
+
+                const feature =
+                    map.forEachFeatureAtPixel(
+
+                        event.pixel,
+
+                        function(feature) {
+
+                            if (
+                                feature &&
+                                feature.get(
+                                    'customer'
+                                )
+                            ) {
+
+                                return feature;
+
+                            }
+
+                            return null;
+
+                        }
+
+                    );
+
+
+                // Tidak klik customer
+
+                if (!feature) {
+
+                    return;
+
+                }
+
+
+                // =================================================
+                // TAMPILKAN POPUP
+                // =================================================
+
+                showPopup(
+                    feature
                 );
 
             }
+        );
 
-            const text =
-                await response.text();
 
-            customers =
-                parseCustomerData(text);
+        console.log(
+            '===================================='
+        );
 
-            console.log(
-                'TOTAL CUSTOMER:',
-                customers.length
-            );
+        console.log(
+            'CUSTOMER MAP SIAP'
+        );
 
-            console.table(
-                customers.slice(
-                    0,
-                    10
-                )
-            );
+        console.log(
+            'Customer:',
+            customers.length
+        );
+
+        console.log(
+            '===================================='
+        );
+
+    }
+    catch (error) {
+
+        // =====================================================
+        // ERROR
+        // =====================================================
+
+        console.error(
+            '===================================='
+        );
+
+        console.error(
+            'CUSTOMER CSV ERROR'
+        );
+
+        console.error(
+            error
+        );
+
+        console.error(
+            '===================================='
+        );
+
+
+        alert(
+
+            'Gagal membaca customer.csv\n\n' +
+
+            error.message +
+
+            '\n\n' +
+
+            'Periksa Console browser (F12).'
+
+        );
+
+    }
+
+}
 
             // CITY
 
@@ -1128,7 +1614,11 @@
     document.addEventListener(
         'DOMContentLoaded',
         function() {
-
+            const vendor =
+                document.getElementById(
+                    'filter-vendor'
+                );
+            
             const city =
                 document.getElementById(
                     'filter-city'
