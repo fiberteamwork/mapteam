@@ -1,4 +1,4 @@
-﻿ID Customer;Username;City;District;Ward;CEK SITE NAME SYSTEM;Team;Status Instalasi/Maintenance;Visit Date;Latitude;Longitude
+﻿ID Customer;Username;City;District;Ward;CEK SITE NAME SYSTEM;Vendor;Status Instalasi/Maintenance;Visit Date;Latitude;Longitude
 11915402;SUKAMTO;KAB. SIDOARJO;WARU;TROPODO;TROPODO RW 4;ckt_sidoarjo1;🔴 Pending;01/02/2026;-7.359554;112.758676
 11916332;AKBAR ANANDA PRASTIYA;KAB. SIDOARJO;GEDANGAN;WEDI;WEDI RW 1;ckt_sidoarjo1;🔴 Pending;01/02/2026;-7.385988;112.743217
 11894610;SUHARTATIK;KOTA SURABAYA;SAMBIKEREP;SAMBIKEREP;SAMBIKEREP RW 04;qn_srby1;🔴 Pending;01/02/2026;-7.280220;112.657364
