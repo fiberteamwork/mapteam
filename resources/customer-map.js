@@ -232,9 +232,9 @@
 
 function getFilteredData() {
 
-    const vendor =
+    const team =
         document.getElementById(
-            'filter-vendor'
+            'filter-team'
         ).value;
 
     const city =
@@ -255,8 +255,8 @@ function getFilteredData() {
     return customers.filter(row => {
 
         if (
-            vendor &&
-            row.Vendor !== vendor
+            team &&
+            row.team !== team
         ) {
             return false;
         }
@@ -706,11 +706,11 @@ function getFilteredData() {
     // CITY → DISTRICT
     // =====================================================
     
-    function updateVendor() {
+    function updateteam() {
 
-    const vendor =
+    const team =
         document.getElementById(
-            'filter-vendor'
+            'filter-team'
         ).value;
 
 
@@ -719,8 +719,8 @@ function getFilteredData() {
             row => {
 
                 return (
-                    !vendor ||
-                    row.Vendor === vendor
+                    !team ||
+                    row.team === team
                 );
 
             }
@@ -769,9 +769,9 @@ function getFilteredData() {
     
 function updateDistrict() {
 
-    const vendor =
+    const team =
         document.getElementById(
-            'filter-vendor'
+            'filter-team'
         ).value;
 
     const city =
@@ -785,8 +785,8 @@ function updateDistrict() {
             row => {
 
                 if (
-                    vendor &&
-                    row.Vendor !== vendor
+                    team &&
+                    row.team !== team
                 ) {
 
                     return false;
@@ -841,9 +841,9 @@ function updateDistrict() {
     
 function updateWard() {
 
-    const vendor =
+    const team =
         document.getElementById(
-            'filter-vendor'
+            'filter-team'
         ).value;
 
     const city =
@@ -862,8 +862,8 @@ function updateWard() {
             row => {
 
                 if (
-                    vendor &&
-                    row.Vendor !== vendor
+                    team &&
+                    row.team !== team
                 ) {
 
                     return false;
@@ -1220,7 +1220,7 @@ async function loadData() {
 
             'Team',
 
-            'Vendor',
+            'team',
 
             'Status Instalasi/Maintenance',
 
@@ -1263,19 +1263,19 @@ async function loadData() {
 
 
         // =====================================================
-        // FILTER VENDOR
+        // FILTER team
         // =====================================================
 
         fillSelect(
 
-            'filter-vendor',
+            'filter-team',
 
             customers.map(
                 row =>
-                    row.Vendor
+                    row.team
             ),
 
-            'Semua Vendor'
+            'Semua team'
 
         );
 
@@ -1614,9 +1614,9 @@ async function loadData() {
     document.addEventListener(
         'DOMContentLoaded',
         function() {
-            const vendor =
+            const team =
                 document.getElementById(
-                    'filter-vendor'
+                    'filter-team'
                 );
             
             const city =
