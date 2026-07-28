@@ -206,11 +206,7 @@
         <button id="dashboard-close">×</button>
     </div>
 
-		<label>Vendor / Team</label>
-		<select id="filter-team">
-		    <option value="">Semua Vendor</option>
-		</select>
-		
+    <div class="filter-group">
         <label>City</label>
         <select id="filter-city">
             <option value="">Semua City</option>
@@ -237,13 +233,12 @@
             <span>Total Ward</span>
             <strong id="total-ward">0</strong>
         </div>
+    </div>
 
-	</div>
+    <div class="chart-title">
+        Customer berdasarkan Ward
+    </div>
 
-<div class="chart-title">
-    Customer berdasarkan Status
-</div>
-	
     <canvas id="ward-chart"></canvas>
 
     <div id="legend"></div>
@@ -269,6 +264,45 @@
         <script src="./layers/layers.js" type="text/javascript"></script> 
         <script src="./resources/Autolinker.min.js"></script>
         <script src="./resources/qgis2web.js"></script>        
-        <script src="./customer-map.js"></script>    
-	</body>
+        <script src="./resources/customer-map.js"></script>
+        
+        <script>
+fetch('./data/customer.csv')
+    .then(function(response) {
+
+        console.log('CSV STATUS:', response.status);
+        console.log('CSV OK:', response.ok);
+
+        if (!response.ok) {
+            throw new Error(
+                'CSV tidak ditemukan. HTTP ' +
+                response.status
+            );
+        }
+
+        return response.text();
+    })
+    .then(function(text) {
+
+        console.log('CSV BERHASIL DIBACA');
+        console.log(
+            'Jumlah karakter:',
+            text.length
+        );
+
+        console.log(
+            text.substring(0, 500)
+        );
+
+    })
+    .catch(function(error) {
+
+        console.error(
+            'CSV ERROR:',
+            error
+        );
+
+    });
+</script>
+    </body>
 </html>
