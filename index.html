@@ -266,43 +266,5 @@
         <script src="./resources/qgis2web.js"></script>        
         <script src="./resources/customer-map.js"></script>
         
-        <script>
-fetch('./data/customer.csv')
-    .then(function(response) {
-
-        console.log('CSV STATUS:', response.status);
-        console.log('CSV OK:', response.ok);
-
-        if (!response.ok) {
-            throw new Error(
-                'CSV tidak ditemukan. HTTP ' +
-                response.status
-            );
-        }
-
-        return response.text();
-    })
-    .then(function(text) {
-
-        console.log('CSV BERHASIL DIBACA');
-        console.log(
-            'Jumlah karakter:',
-            text.length
-        );
-
-        console.log(
-            text.substring(0, 500)
-        );
-
-    })
-    .catch(function(error) {
-
-        console.error(
-            'CSV ERROR:',
-            error
-        );
-
-    });
-</script>
     </body>
 </html>
