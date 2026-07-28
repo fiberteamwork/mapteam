@@ -1,308 +1,1004 @@
-<!doctype html>
-<html lang="en">
-    <head>
-        <meta charset="utf-8">
-        <meta http-equiv="X-UA-Compatible" content="IE=edge">
-        <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
-        <meta name="mobile-web-app-capable" content="yes">
-        <meta name="apple-mobile-web-app-capable" content="yes">
-        <link rel="stylesheet" href="./resources/ol.css">
-        <link rel="stylesheet" href="resources/fontawesome-all.min.css">
-        <link href="resources/photon-geocoder-autocomplete.min.css" rel="stylesheet">
-        <link rel="stylesheet" href="./resources/ol-layerswitcher.css">
-        <link rel="stylesheet" href="./resources/qgis2web.css">
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-        <style>
-		#dashboard {
-    position: absolute;
-    z-index: 9999;
-    top: 15px;
-    left: 15px;
-    width: 330px;
-    max-height: calc(100vh - 30px);
-    overflow-y: auto;
-    background: rgba(255,255,255,.97);
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0,0,0,.25);
-    padding: 15px;
-    font-family: Arial, sans-serif;
-}
+(function () {
 
-.dashboard-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 18px;
-    margin-bottom: 15px;
-}
+    const DATA_URL = './data/customer.csv';
 
-#dashboard-close {
-    border: 0;
-    background: transparent;
-    font-size: 24px;
-    cursor: pointer;
-}
+    let customers = [];
+    let customerSource = null;
+    let customerLayer = null;
+    let wardChart = null;
 
-#dashboard-toggle {
-    position: absolute;
-    z-index: 9998;
-    top: 15px;
-    left: 15px;
-    display: none;
-    border: 0;
-    border-radius: 8px;
-    padding: 10px 14px;
-    background: white;
-    box-shadow: 0 2px 10px rgba(0,0,0,.25);
-    cursor: pointer;
-    font-size: 18px;
-}
+    const colors = [
+        '#2563eb',
+        '#16a34a',
+        '#dc2626',
+        '#9333ea',
+        '#ea580c',
+        '#0891b2',
+        '#ca8a04',
+        '#db2777',
+        '#4f46e5',
+        '#059669'
+    ];
 
-.filter-group label {
-    display: block;
-    margin-top: 8px;
-    margin-bottom: 4px;
-    font-size: 12px;
-    font-weight: bold;
-}
+    // =========================
+    // PARSER CSV ;
+    // =========================
 
-.filter-group select {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    background: white;
-}
+    function parseCSV(text) {
 
-#summary {
-    display: flex;
-    gap: 8px;
-    margin: 15px 0;
-}
+        const lines = text
+            .replace(/\r/g, '')
+            .split('\n')
+            .filter(line => line.trim() !== '');
 
-.summary-card {
-    flex: 1;
-    padding: 10px;
-    background: #f3f4f6;
-    border-radius: 8px;
-    text-align: center;
-}
+        const headers = lines[0]
+            .split(';')
+            .map(x => x.trim());
 
-.summary-card span {
-    display: block;
-    font-size: 11px;
-    color: #666;
-}
+        return lines.slice(1).map(line => {
 
-.summary-card strong {
-    display: block;
-    margin-top: 4px;
-    font-size: 20px;
-}
+            const values = line.split(';');
 
-.chart-title {
-    font-weight: bold;
-    margin: 10px 0;
-}
+            const obj = {};
 
-#ward-chart {
-    width: 100%;
-    height: 220px;
-}
+            headers.forEach((header, index) => {
 
-#legend {
-    margin-top: 10px;
-}
+                obj[header] =
+                    (values[index] || '').trim();
 
-.legend-item {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    margin: 5px 0;
-    font-size: 12px;
-}
+            });
 
-.legend-color {
-    width: 13px;
-    height: 13px;
-    border-radius: 50%;
-}
+            return obj;
 
-.customer-popup {
-    min-width: 250px;
-}
+        });
 
-.customer-popup table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-}
-
-.customer-popup td {
-    padding: 4px;
-    border-bottom: 1px solid #eee;
-}
-
-.customer-popup td:first-child {
-    font-weight: bold;
-    width: 42%;
-}
-
-.gps-button {
-    display: block;
-    margin-top: 10px;
-    padding: 9px;
-    text-align: center;
-    background: #2563eb;
-    color: white;
-    text-decoration: none;
-    border-radius: 6px;
-    font-weight: bold;
-}
-
-@media (max-width: 600px) {
-    #dashboard {
-        width: calc(100% - 30px);
     }
-}
-        html, body {
-            background-color: #ffffff;
+
+    // =========================
+    // KOORDINAT
+    // =========================
+
+    function convertCoordinate(value) {
+
+        if (
+            value === undefined ||
+            value === null ||
+            value === '' ||
+            value === '0'
+        ) {
+            return null;
         }
-        .ol-control > * {
-            background-color: #f8f8f8!important;
-            color: #444444!important;
-            border-radius: 0px;
-        }
-        .ol-attribution a, .gcd-gl-input::placeholder, .search-layer-input-search::placeholder {
-            color: #444444!important;
-        }
-        .search-layer-input-search {
-            background-color: #f8f8f8!important;
-        }
-        .ol-control > *:focus, .ol-control >*:hover {
-            background-color: rgba(248, 248, 248, 0.7)!important;
-        } 
-        .ol-control {
-            background-color: rgba(255,255,255,.4) !important;
-            padding: 2px !important;
-        } 
-        </style>
 
-        <style>
-        html, body, #map {
-            width: 100%;
-            height: 100%;
-            padding: 0;
-            margin: 0;
-        }
-        </style>
-        <title></title>
-    </head>
-    <body>
-
-<div id="dashboard">
-    <div class="dashboard-header">
-        <b>Customer Map</b>
-        <button id="dashboard-close">×</button>
-    </div>
-
-    <div class="filter-group">
-        <label>City</label>
-        <select id="filter-city">
-            <option value="">Semua City</option>
-        </select>
-
-        <label>District</label>
-        <select id="filter-district">
-            <option value="">Semua District</option>
-        </select>
-
-        <label>Ward</label>
-        <select id="filter-ward">
-            <option value="">Semua Ward</option>
-        </select>
-    </div>
-
-    <div id="summary">
-        <div class="summary-card">
-            <span>Total Customer</span>
-            <strong id="total-customer">0</strong>
-        </div>
-
-        <div class="summary-card">
-            <span>Total Ward</span>
-            <strong id="total-ward">0</strong>
-        </div>
-    </div>
-
-    <div class="chart-title">
-        Customer berdasarkan Ward
-    </div>
-
-    <canvas id="ward-chart"></canvas>
-
-    <div id="legend"></div>
-</div>
-
-<button id="dashboard-toggle">📊</button>
-        <div id="map">
-            <div id="popup" class="ol-popup">
-                <a href="#" id="popup-closer" class="ol-popup-closer"></a>
-                <div id="popup-content"></div>
-            </div>
-        </div>
-        <script src="resources/qgis2web_expressions.js"></script>
-        <script src="./resources/functions.js"></script>
-        <script src="./resources/ol.js"></script>
-        <script src="./resources/ol-layerswitcher.js"></script>
-        <script src="resources/photon-geocoder-autocomplete.min.js"></script>
-        <script src="resources/olms.js"></script>
-        <script src="layers/SIDOARJO_1.js"></script>
-        <script src="layers/surabaya_2.js"></script>
-        <script src="styles/SIDOARJO_1_style.js"></script>
-        <script src="styles/surabaya_2_style.js"></script>
-        <script src="./layers/layers.js" type="text/javascript"></script> 
-        <script src="./resources/Autolinker.min.js"></script>
-        <script src="./resources/qgis2web.js"></script>        
-        <script src="./resources/customer-map.js"></script>
-        
-        <script>
-fetch('./data/customer.csv')
-    .then(function(response) {
-
-        console.log('CSV STATUS:', response.status);
-        console.log('CSV OK:', response.ok);
-
-        if (!response.ok) {
-            throw new Error(
-                'CSV tidak ditemukan. HTTP ' +
-                response.status
+        let number =
+            parseFloat(
+                String(value)
+                    .replace(',', '.')
+                    .trim()
             );
+
+        if (!Number.isFinite(number))
+            return null;
+
+        /*
+         * Data Anda:
+         * -7359554  → -7.359554
+         * 112758676 → 112.758676
+         */
+
+        if (Math.abs(number) > 180) {
+
+            number =
+                number / 1000000;
+
         }
 
-        return response.text();
-    })
-    .then(function(text) {
+        return number;
 
-        console.log('CSV BERHASIL DIBACA');
-        console.log(
-            'Jumlah karakter:',
-            text.length
+    }
+
+    // =========================
+    // UNIQUE
+    // =========================
+
+    function unique(values) {
+
+        return [
+            ...new Set(
+                values
+                    .filter(x =>
+                        x !== undefined &&
+                        x !== null &&
+                        String(x).trim() !== ''
+                    )
+                    .map(x =>
+                        String(x).trim()
+                    )
+            )
+        ].sort();
+
+    }
+
+    // =========================
+    // SELECT
+    // =========================
+
+    function fillSelect(
+        id,
+        values,
+        firstText
+    ) {
+
+        const select =
+            document.getElementById(id);
+
+        if (!select)
+            return;
+
+        select.innerHTML = '';
+
+        const first =
+            document.createElement('option');
+
+        first.value = '';
+        first.textContent = firstText;
+
+        select.appendChild(first);
+
+        unique(values).forEach(value => {
+
+            const option =
+                document.createElement('option');
+
+            option.value = value;
+            option.textContent = value;
+
+            select.appendChild(option);
+
+        });
+
+    }
+
+    // =========================
+    // FILTER
+    // =========================
+
+    function filteredData() {
+
+        const city =
+            document.getElementById(
+                'filter-city'
+            ).value;
+
+        const district =
+            document.getElementById(
+                'filter-district'
+            ).value;
+
+        const ward =
+            document.getElementById(
+                'filter-ward'
+            ).value;
+
+        return customers.filter(row => {
+
+            if (
+                city &&
+                row.City !== city
+            )
+                return false;
+
+            if (
+                district &&
+                row.District !== district
+            )
+                return false;
+
+            if (
+                ward &&
+                row.Ward !== ward
+            )
+                return false;
+
+            return true;
+
+        });
+
+    }
+
+    // =========================
+    // COUNT WARD
+    // =========================
+
+    function countWard(data) {
+
+        const result = {};
+
+        data.forEach(row => {
+
+            const ward =
+                row.Ward ||
+                'Tidak diketahui';
+
+            result[ward] =
+                (result[ward] || 0) + 1;
+
+        });
+
+        return result;
+
+    }
+
+    // =========================
+    // WARNA
+    // =========================
+
+    function markerColor(count, max) {
+
+        if (max <= 1)
+            return colors[0];
+
+        const index =
+            Math.min(
+                colors.length - 1,
+                Math.floor(
+                    (
+                        (count - 1) /
+                        Math.max(max - 1, 1)
+                    ) *
+                    (colors.length - 1)
+                )
+            );
+
+        return colors[index];
+
+    }
+
+    // =========================
+    // MARKER
+    // =========================
+
+    function drawMarkers(data) {
+
+        customerSource.clear();
+
+        const counts =
+            countWard(data);
+
+        const max =
+            Math.max(
+                ...Object.values(counts),
+                1
+            );
+
+        data.forEach(row => {
+
+            const lat =
+                convertCoordinate(
+                    row.Latitude
+                );
+
+            const lon =
+                convertCoordinate(
+                    row.Longitude
+                );
+
+            // Skip GPS 0,0
+            if (
+                lat === null ||
+                lon === null ||
+                lat === 0 ||
+                lon === 0
+            ) {
+                return;
+            }
+
+            const ward =
+                row.Ward ||
+                'Tidak diketahui';
+
+            const count =
+                counts[ward] || 1;
+
+            const feature =
+                new ol.Feature({
+
+                    geometry:
+                        new ol.geom.Point(
+                            ol.proj.fromLonLat([
+                                lon,
+                                lat
+                            ])
+                        ),
+
+                    customer: row,
+
+                    latitude: lat,
+
+                    longitude: lon,
+
+                    wardCount: count
+
+                });
+
+            feature.setStyle(
+                new ol.style.Style({
+
+                    image:
+                        new ol.style.Circle({
+
+                            radius:
+                                Math.min(
+                                    7 +
+                                    count * 0.7,
+                                    18
+                                ),
+
+                            fill:
+                                new ol.style.Fill({
+                                    color:
+                                        markerColor(
+                                            count,
+                                            max
+                                        )
+                                }),
+
+                            stroke:
+                                new ol.style.Stroke({
+                                    color: '#ffffff',
+                                    width: 2
+                                })
+
+                        })
+
+                })
+            );
+
+            customerSource.addFeature(
+                feature
+            );
+
+        });
+
+    }
+
+    // =========================
+    // PIE CHART
+    // =========================
+
+    function drawPie(data) {
+
+        const counts =
+            countWard(data);
+
+        const labels =
+            Object.keys(counts);
+
+        const values =
+            Object.values(counts);
+
+        const canvas =
+            document.getElementById(
+                'ward-chart'
+            );
+
+        if (!canvas)
+            return;
+
+        if (wardChart)
+            wardChart.destroy();
+
+        wardChart =
+            new Chart(canvas, {
+
+                type: 'pie',
+
+                data: {
+
+                    labels: labels,
+
+                    datasets: [{
+
+                        data: values,
+
+                        backgroundColor:
+                            labels.map(
+                                (_, i) =>
+                                    colors[
+                                        i %
+                                        colors.length
+                                    ]
+                            ),
+
+                        borderColor:
+                            '#ffffff',
+
+                        borderWidth: 2
+
+                    }]
+
+                },
+
+                options: {
+
+                    responsive: true,
+
+                    plugins: {
+
+                        legend: {
+
+                            position: 'bottom',
+
+                            labels: {
+
+                                boxWidth: 12
+
+                            }
+
+                        }
+
+                    }
+
+                }
+
+            });
+
+    }
+
+    // =========================
+    // LEGEND
+    // =========================
+
+    function updateLegend(data) {
+
+        const container =
+            document.getElementById(
+                'legend'
+            );
+
+        container.innerHTML = '';
+
+        const counts =
+            countWard(data);
+
+        const max =
+            Math.max(
+                ...Object.values(counts),
+                1
+            );
+
+        Object.entries(counts)
+
+            .sort(
+                (a, b) =>
+                    b[1] - a[1]
+            )
+
+            .forEach(
+                ([ward, count]) => {
+
+                    const item =
+                        document.createElement(
+                            'div'
+                        );
+
+                    item.className =
+                        'legend-item';
+
+                    item.innerHTML = `
+
+                        <span
+                            class="legend-color"
+                            style="
+                                background:${markerColor(
+                                    count,
+                                    max
+                                )}
+                            ">
+                        </span>
+
+                        <span>
+                            ${ward}
+                            —
+                            <b>${count}</b>
+                            customer
+                        </span>
+
+                    `;
+
+                    container.appendChild(
+                        item
+                    );
+
+                }
+            );
+
+    }
+
+    // =========================
+    // DASHBOARD
+    // =========================
+
+    function updateDashboard() {
+
+        const data =
+            filteredData();
+
+        document.getElementById(
+            'total-customer'
+        ).textContent =
+            data.length.toLocaleString();
+
+        document.getElementById(
+            'total-ward'
+        ).textContent =
+            unique(
+                data.map(x => x.Ward)
+            ).length;
+
+        drawMarkers(data);
+
+        drawPie(data);
+
+        updateLegend(data);
+
+    }
+
+    // =========================
+    // CITY → DISTRICT
+    // =========================
+
+    function updateDistrict() {
+
+        const city =
+            document.getElementById(
+                'filter-city'
+            ).value;
+
+        const data =
+            customers.filter(row =>
+                !city ||
+                row.City === city
+            );
+
+        fillSelect(
+            'filter-district',
+            data.map(x => x.District),
+            'Semua District'
         );
 
-        console.log(
-            text.substring(0, 500)
+        fillSelect(
+            'filter-ward',
+            [],
+            'Semua Ward'
         );
 
-    })
-    .catch(function(error) {
+        updateDashboard();
 
-        console.error(
-            'CSV ERROR:',
-            error
+    }
+
+    // =========================
+    // DISTRICT → WARD
+    // =========================
+
+    function updateWard() {
+
+        const city =
+            document.getElementById(
+                'filter-city'
+            ).value;
+
+        const district =
+            document.getElementById(
+                'filter-district'
+            ).value;
+
+        const data =
+            customers.filter(row => {
+
+                if (
+                    city &&
+                    row.City !== city
+                )
+                    return false;
+
+                if (
+                    district &&
+                    row.District !== district
+                )
+                    return false;
+
+                return true;
+
+            });
+
+        fillSelect(
+            'filter-ward',
+            data.map(x => x.Ward),
+            'Semua Ward'
         );
 
-    });
-</script>
-    </body>
-</html>
+        updateDashboard();
+
+    }
+
+    // =========================
+    // POPUP
+    // =========================
+
+    function showPopup(feature) {
+
+        const row =
+            feature.get(
+                'customer'
+            );
+
+        const lat =
+            feature.get(
+                'latitude'
+            );
+
+        const lon =
+            feature.get(
+                'longitude'
+            );
+
+        const gps =
+            'https://www.google.com/maps/search/?api=1&query=' +
+            encodeURIComponent(
+                lat + ',' + lon
+            );
+
+        const html = `
+
+            <div class="customer-popup">
+
+                <h3>
+                    ${row['ID Customer'] || '-'}
+                </h3>
+
+                <table>
+
+                    <tr>
+                        <td>Username</td>
+                        <td>
+                            ${row.Username || '-'}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>City</td>
+                        <td>
+                            ${row.City || '-'}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>District</td>
+                        <td>
+                            ${row.District || '-'}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>Ward</td>
+                        <td>
+                            ${row.Ward || '-'}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>Site</td>
+                        <td>
+                            ${row['CEK SITE NAME SYSTEM'] || '-'}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>Team</td>
+                        <td>
+                            ${row.Team || '-'}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>Status</td>
+                        <td>
+                            ${row['Status Instalasi/Maintenance'] || '-'}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>Visit Date</td>
+                        <td>
+                            ${row['Visit Date'] || '-'}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>Latitude</td>
+                        <td>
+                            ${lat}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>Longitude</td>
+                        <td>
+                            ${lon}
+                        </td>
+                    </tr>
+
+                </table>
+
+                <a
+                    href="${gps}"
+                    target="_blank"
+                    class="gps-button"
+                >
+                    📍 Buka GPS
+                </a>
+
+            </div>
+
+        `;
+
+        document.getElementById(
+            'popup-content'
+        ).innerHTML = html;
+
+        if (
+            typeof overlay !==
+            'undefined'
+        ) {
+
+            overlay.setPosition(
+                feature
+                    .getGeometry()
+                    .getCoordinates()
+            );
+
+        }
+
+    }
+
+    // =========================
+    // LOAD DATA
+    // =========================
+
+    async function loadData() {
+
+        try {
+
+            console.log(
+                'Mengambil data:',
+                DATA_URL
+            );
+
+            const response =
+                await fetch(
+                    DATA_URL
+                );
+
+            if (!response.ok) {
+
+                throw new Error(
+                    'HTTP ' +
+                    response.status
+                );
+
+            }
+
+            const text =
+                await response.text();
+
+            customers =
+                parseCSV(text);
+
+            console.log(
+                'TOTAL DATA:',
+                customers.length
+            );
+
+            console.table(
+                customers.slice(
+                    0,
+                    10
+                )
+            );
+
+            // =========================
+            // CITY
+            // =========================
+
+            fillSelect(
+                'filter-city',
+                customers.map(
+                    x => x.City
+                ),
+                'Semua City'
+            );
+
+            fillSelect(
+                'filter-district',
+                [],
+                'Semua District'
+            );
+
+            fillSelect(
+                'filter-ward',
+                [],
+                'Semua Ward'
+            );
+
+            // =========================
+            // LAYER
+            // =========================
+
+            customerSource =
+                new ol.source.Vector();
+
+            customerLayer =
+                new ol.layer.Vector({
+
+                    title:
+                        'Customer GPS',
+
+                    source:
+                        customerSource,
+
+                    zIndex:
+                        9999
+
+                });
+
+            map.addLayer(
+                customerLayer
+            );
+
+            updateDashboard();
+
+            // =========================
+            // CLICK MARKER
+            // =========================
+
+            map.on(
+                'singleclick',
+                function (event) {
+
+                    const feature =
+                        map.forEachFeatureAtPixel(
+                            event.pixel,
+                            function (
+                                feature
+                            ) {
+
+                                if (
+                                    feature.get(
+                                        'customer'
+                                    )
+                                ) {
+
+                                    return feature;
+
+                                }
+
+                                return null;
+
+                            }
+                        );
+
+                    if (feature) {
+
+                        showPopup(
+                            feature
+                        );
+
+                    }
+
+                }
+            );
+
+        }
+        catch (error) {
+
+            console.error(
+                'CUSTOMER DATA ERROR:',
+                error
+            );
+
+            alert(
+                'Gagal membaca customer.csv. ' +
+                'Pastikan data/customer.csv tersedia.'
+            );
+
+        }
+
+    }
+
+    // =========================
+    // START
+    // =========================
+
+    document.addEventListener(
+        'DOMContentLoaded',
+        function () {
+
+            document
+                .getElementById(
+                    'filter-city'
+                )
+                .addEventListener(
+                    'change',
+                    updateDistrict
+                );
+
+            document
+                .getElementById(
+                    'filter-district'
+                )
+                .addEventListener(
+                    'change',
+                    updateWard
+                );
+
+            document
+                .getElementById(
+                    'filter-ward'
+                )
+                .addEventListener(
+                    'change',
+                    updateDashboard
+                );
+
+            document
+                .getElementById(
+                    'dashboard-close'
+                )
+                .addEventListener(
+                    'click',
+                    function () {
+
+                        document
+                            .getElementById(
+                                'dashboard'
+                            )
+                            .style.display =
+                            'none';
+
+                        document
+                            .getElementById(
+                                'dashboard-toggle'
+                            )
+                            .style.display =
+                            'block';
+
+                    }
+                );
+
+            document
+                .getElementById(
+                    'dashboard-toggle'
+                )
+                .addEventListener(
+                    'click',
+                    function () {
+
+                        document
+                            .getElementById(
+                                'dashboard'
+                            )
+                            .style.display =
+                            'block';
+
+                        this.style.display =
+                            'none';
+
+                    }
+                );
+
+            loadData();
+
+        }
+    );
+
+})();
