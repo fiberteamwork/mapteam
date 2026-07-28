@@ -6,12 +6,6 @@
     let customerSource = null;
     let customerLayer = null;
     let statusChart = null;
-
-    const TEAM_VENDOR = {
-    "ckt_sidoarjo1": "Vendor A",
-    "ckt_srby1": "Vendor B",
-    "qn_srby1": "Vendor C"
-    };
     
     // =====================================================
     // WARNA STATUS
