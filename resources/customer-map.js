@@ -876,36 +876,32 @@ function applyFilters() {
 
 function updateSummary(data) {
 
-    const total =
-        document.getElementById(
-            "total-customer"
-        );
+    const total = document.getElementById("total-customer");
+    const ward = document.getElementById("total-ward");
 
-    const ward =
-        document.getElementById(
-            "total-ward"
-        );
+    // Total customer
+    const totalCustomer = data.length;
 
-    if (total)
-        total.textContent =
-            data.length;
+    // Total status DONE
+    const totalDone = data.filter(c =>
+        getStatusKey(c.status) === "done"
+    ).length;
+
+    if (total) {
+        total.innerHTML = `${totalDone} / ${totalCustomer}`;
+        // atau:
+        // total.innerHTML = `${totalDone}<br><small>of ${totalCustomer}</small>`;
+    }
 
     if (ward) {
-
-        ward.textContent =
-            new Set(
-                data
-                    .map(
-                        c =>
-                            c.ward
-                    )
-                    .filter(Boolean)
-            ).size;
-
+        ward.textContent = new Set(
+            data
+                .map(c => c.ward)
+                .filter(Boolean)
+        ).size;
     }
 
 }
-
 
 /* =========================================================
    CHART STATUS
